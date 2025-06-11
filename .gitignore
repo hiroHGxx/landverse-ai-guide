@@ -55,3 +55,65 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# RAG System specific
+# Vector database files
+backend/data/
+*.faiss
+*.pkl
+
+# Output files
+backend/output.txt
+backend/improved_results.txt
+backend/*_results.txt
+output.txt
+*_output.txt
+*_results.txt
+
+# Test and demo files
+backend/test_*.py
+backend/verbose_questions.py
+backend/english_questions.py
+backend/improved_questions.py
+backend/ask_question.py
+backend/my_questions.py
+backend/my_smart_questions.py
+backend/quick_start.py
+backend/rag_example.py
+backend/start_server.py
+
+# RAG system executables (development use)
+backend/smart_rag.py
+backend/rag_cli.py
+backend/rag_simple.py
+
+# Configuration backups
+*.yaml.bak
+*.yml.bak
+config/*.bak
+
+# AI/ML temporary files
+.sentence_transformers_cache/
+transformers_cache/
+huggingface_cache/
+.embeddings_cache/
+
+# Additional Python
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Logs
+logs/
+*.log
+
+# Cache
+.cache/
+*.cache
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
