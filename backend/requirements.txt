@@ -1,0 +1,16 @@
+# Web Framework
+fastapi
+uvicorn[standard]
+
+# Environment Variables
+python-dotenv
+
+# AI and RAG
+google-generativeai
+sentence-transformers
+faiss-cpu # or faiss-gpu if you have a compatible GPU
+beautifulsoup4
+requests
+numpy
+
+# Pydantic is a dependency of FastAPI
