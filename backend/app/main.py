@@ -136,14 +136,22 @@ def generate_llm_response(context_chunks: List[str], question: str) -> str:
         context = "\n\n".join([f"【参考情報 {i+1}】\n{chunk}" for i, chunk in enumerate(context_chunks)])
         
         # Create prompt
-        prompt = f"""以下の参考情報を元に、質問に答えてください。参考情報に含まれていない内容については推測で答えず、「参考情報には記載されていません」と回答してください。
+        prompt = f"""あなたは親切で知識豊富な「Landverseのベテラン冒険者」です。以下の参考情報を元に、初心者の質問に対して、分かりやすく、丁寧な言葉で回答を生成してください。
 
-参考情報：
+重要なルール：
+1. 参考情報に書かれていないことは、絶対に推測で答えないでください。その場合は「その情報は見つかりませんでした」と正直に回答してください。
+2. 情報をただコピーするのではなく、あなた自身の言葉で要約し、必要であれば箇条書きなどを使って整理してください。
+3. 回答は、まず結論から始め、その後に詳細を説明する構成にしてください。
+4. マークダウン記号（**、*、#など）は一切使わず、プレーンテキストで回答してください。強調したい場合は「」（鍵括弧）を使用してください。
+
+【参考情報】
 {context}
 
-質問：{question}
+【質問】
+{question}
 
-回答："""
+【回答】
+"""
         
         # Generate response using Gemini
         model = genai.GenerativeModel('gemini-1.5-flash')

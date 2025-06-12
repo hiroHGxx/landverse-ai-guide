@@ -2,12 +2,20 @@
 
 import { useState, useRef, useEffect } from 'react';
 
+interface Source {
+  chunk_index: number;
+  similarity_score: number;
+  content_preview: string;
+  source_url: string;
+}
+
 interface Message {
   id: number;
   content: string;
   isUser: boolean;
   timestamp: Date;
   isTemporary?: boolean;
+  sources?: Source[];
 }
 
 export default function Home() {
@@ -85,6 +93,7 @@ export default function Home() {
         content: data.answer || 'すみません、回答を取得できませんでした。',
         isUser: false,
         timestamp: new Date(),
+        sources: data.sources || [],
       };
 
       setMessages(prev => 
@@ -120,6 +129,141 @@ export default function Home() {
     }
   };
 
+  const SourcesComponent = ({ sources }: { sources: Source[] }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [showAllSources, setShowAllSources] = useState(false);
+    
+    if (!sources || sources.length === 0) return null;
+    
+    // 品質レベルを判定する関数
+    const getQualityLevel = (score: number) => {
+      if (score >= 0.7) return { level: 'high', color: 'text-green-600 dark:text-green-400', message: '高い関連性' };
+      if (score >= 0.5) return { level: 'medium', color: 'text-blue-600 dark:text-blue-400', message: '中程度の関連性' };
+      if (score >= 0.3) return { level: 'low', color: 'text-yellow-600 dark:text-yellow-400', message: '低い関連性' };
+      return { level: 'very-low', color: 'text-red-600 dark:text-red-400', message: '関連性が低い可能性があります' };
+    };
+    
+    // 低品質なコンテンツを判定する関数
+    const isLowQualityContent = (source: Source) => {
+      const content = source.content_preview.toLowerCase();
+      
+      // 1. 極短いコンテンツ（100文字未満）
+      if (content.length < 100) return true;
+      
+      // 2. Shop/Kafraのみのコンテンツ
+      const hasOnlyShopKafra = content.includes('shop💱') && 
+                              content.includes('kafra premium service') && 
+                              content.length < 200;
+      if (hasOnlyShopKafra) return true;
+      
+      // 3. 絵文字ばかりのコンテンツ
+      const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu;
+      const emojiCount = (content.match(emojiRegex) || []).length;
+      const textLength = content.replace(emojiRegex, '').length;
+      if (emojiCount > textLength * 0.3) return true; // 絵文字が30%以上
+      
+      // 4. 意味のない繰り返し
+      const uniqueWords = new Set(content.split(/\s+/));
+      if (uniqueWords.size < 5) return true; // ユニークな単語が5個未満
+      
+      return false;
+    };
+    
+    // 重複するコンテンツを除去（content_previewの最初の100文字で判定）
+    const uniqueSources = sources.filter((source, index, self) => 
+      index === self.findIndex(s => 
+        s.content_preview.substring(0, 100) === source.content_preview.substring(0, 100)
+      )
+    );
+    
+    // 低品質コンテンツを除去
+    const meaningfulSources = uniqueSources.filter(source => !isLowQualityContent(source));
+    
+    // 類似度でソート（高い順）
+    const sortedSources = meaningfulSources.sort((a, b) => b.similarity_score - a.similarity_score);
+    
+    // 表示用のソースを決定（20%以上に引き上げ）
+    const primarySources = sortedSources.filter(source => source.similarity_score >= 0.20);
+    const veryLowSources = sortedSources.filter(source => source.similarity_score < 0.20);
+    
+    const displaySources = showAllSources ? sortedSources : primarySources;
+    
+    return (
+      <div className="mt-3 border-t border-gray-200 dark:border-gray-600 pt-3">
+        {displaySources.length > 0 ? (
+          <>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex items-center text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+            >
+              <span className="text-sm">{isExpanded ? '▼' : '▶'}</span>
+              <span className="ml-2">参考にした情報源 ({displaySources.length}件)</span>
+            </button>
+            
+            {isExpanded && (
+              <div className="mt-3 space-y-3">
+                {displaySources.map((source, index) => {
+                  const quality = getQualityLevel(source.similarity_score);
+                  return (
+                    <div key={index} className="bg-gray-50 dark:bg-gray-600 p-3 rounded-lg">
+                      <div className="font-medium text-gray-700 dark:text-gray-200 text-xs mb-2 flex items-center flex-wrap">
+                        <span>ソース {index + 1} (類似度: {(source.similarity_score * 100).toFixed(1)}%)</span>
+                        <span className={`ml-2 ${quality.color} text-xs`}>
+                          • {quality.message}
+                        </span>
+                      </div>
+                      <div className="text-gray-600 dark:text-gray-300 text-xs leading-relaxed mb-2">
+                        {source.content_preview}
+                      </div>
+                      {source.source_url !== 'Unknown' && (
+                        <a 
+                          href={source.source_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 hover:underline text-xs break-all"
+                        >
+                          {source.source_url}
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
+                
+                {veryLowSources.length > 0 && !showAllSources && (
+                  <button
+                    onClick={() => setShowAllSources(true)}
+                    className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
+                  >
+                    + 関連性の低い情報源も表示 ({veryLowSources.length}件)
+                  </button>
+                )}
+                
+                {showAllSources && veryLowSources.length > 0 && (
+                  <button
+                    onClick={() => setShowAllSources(false)}
+                    className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
+                  >
+                    - 関連性の低い情報源を非表示
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-xs text-amber-600 dark:text-amber-400 space-y-1">
+            <div>⚠️ この質問に関連する具体的な情報が見つかりませんでした</div>
+            <div className="text-gray-500 dark:text-gray-400">
+              {sources.length > 0 ? 
+                `検索された${sources.length}件の情報源はすべて関連性が低いか、品質が不十分でした` :
+                'データベースに関連情報が存在しません'
+              }
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <header className="flex-shrink-0 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
@@ -145,6 +289,9 @@ export default function Home() {
                 }`}
               >
                 <p className="text-sm leading-relaxed">{message.content}</p>
+                {!message.isUser && message.sources && (
+                  <SourcesComponent sources={message.sources} />
+                )}
                 {isMounted && (
                   <time className={`text-xs mt-1 block ${
                     message.isUser ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
