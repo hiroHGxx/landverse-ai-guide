@@ -117,3 +117,6 @@ tmp/
 temp/
 *.tmp
 *.temp
+
+# Cursor editor ignore file
+.cursorignore
